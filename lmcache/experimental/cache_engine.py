@@ -145,7 +145,7 @@ class LMCacheEngine:
             assert isinstance(key, CacheEngineKey)
             # Allocate the memory object
             num_tokens = end - start
-            kv_shape = self.gpu_connector.get_shape(num_tokens)
+            kv_shape = self.gpu_connector.get_shape(num_tokens, **kwargs)
             kv_dtype = self.metadata.kv_dtype
             memobj_meta = self.storage_manager.dry_allocate(kv_shape, kv_dtype)
             assert memobj_meta is not None
@@ -238,7 +238,7 @@ class LMCacheEngine:
                 continue
             # Allocate the memory object
             num_tokens = end - start
-            kv_shape = self.gpu_connector.get_shape(num_tokens)
+            kv_shape = self.gpu_connector.get_shape(num_tokens, **kwargs)
             kv_dtype = self.metadata.kv_dtype
             memory_obj = self.storage_manager.allocate(kv_shape, kv_dtype)
             if memory_obj is None:

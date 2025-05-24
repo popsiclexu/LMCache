@@ -211,6 +211,72 @@ __global__ void load_and_reshape_multi_layer_kernel(
     }
 }
 
+
+/**
+ * Quickly load KV cache between vLLM paged memory and offloading buffer
+ * slot_id = slot_mapping[block.x]
+ * key_value[block.z, block.y, block.x, thread.x] <=> ptrs[block.y][block.z, slot_id, thread.x]
+ * Using 64-bit word optimization to improve memory access efficiency
+ */
+template<typename scalar_t, bool DIRECTION>
+__global__ void load_and_reshape_multi_layer_page_attn_kernel(
+    scalar_t * __restrict__ key_value,          // [2, num_layer, num_tokens, num_heads * head_size]
+    scalar_t ** __restrict__ paged_buffer_ptrs, // [num_layers] * [[page_num, num_heads, head_size/x, page_size, x]
+                                                //  ,[page_num, num_heads, head_size, page_size]]
+    const int64_t * __restrict__ slot_mapping,  // [num_tokens]    const int num_tokens,
+    const int num_tokens,
+    const int num_layers,
+    const int page_size,
+    const int num_pages,
+    const int num_heads,
+    const int head_size,
+    const int x,
+    const int elements_per_qword,
+    const int qwords_per_token
+) {
+    const int token_id = blockIdx.x;
+    const int layer_id = blockIdx.y;
+    const int k_or_v = blockIdx.z;
+    const int tid = threadIdx.x;
+    const int num_threads = blockDim.x;
+
+    const int64_t slot_idx = slot_mapping[token_id];
+    const int64_t page_idx = slot_idx / page_size;
+    const int64_t page_offset = slot_idx % page_size;
+    int64_t *paged_buffer_ptr = paged_buffer_ptrs[layer_id];
+
+    if (slot_idx < 0) {
+        return;
+    }
+
+    /** Copy the data from page buffer to key_value using 64-bit word optimization **/
+    for (int i = tid; i < qwords_per_token; i += num_threads) {
+        const int64_t lmcache_offset = k_or_v * num_layers * num_tokens * qwords_per_token + 
+            layer_id * num_tokens * qwords_per_token + 
+            token_id * qwords_per_token + i;
+
+        const int head_idx = i * elements_per_qword / head_size;
+        const int head_offset = i * elements_per_qword % head_size;
+        const int x_idx = head_offset / x;
+        const int x_offset = head_offset % x;
+        int64_t vllm_offset;
+        if (k_or_v == 0) {
+            vllm_offset = page_idx * num_pages * num_heads * (head_size / x) * x / elements_per_qword +
+                head_idx * (head_size / x) * page_size * x / elements_per_qword + x_idx * page_size * x / elements_per_qword +
+                page_offset * x / elements_per_qword + x_offset / elements_per_qword + i;
+        } else {
+            vllm_offset = num_pages * page_size * qwords_per_token + page_idx * num_heads * head_size * page_size / elements_per_qword +
+                head_idx * head_size * page_size / elements_per_qword + head_offset * page_size / elements_per_qword +
+                page_offset / elements_per_qword + i;
+        }
+
+        if (DIRECTION) // 1 is paged buffer to LMCache
+            key_value[lmcache_offset] = paged_buffer_ptr[vllm_offset];
+        else // 0 is LMCache to paged buffer
+            paged_buffer_ptr[vllm_offset] = key_value[lmcache_offset];
+    }
+}
+
 } // namespace lmc
 
 
@@ -301,6 +367,77 @@ void multi_layer_kv_transfer(
         lmc::load_and_reshape_multi_layer_kernel<int64_t, true><<<grid, block, 0, stream>>>(
             key_value_ptr, page_buffer_ptrs, slot_mapping_ptr,
             num_qwords, num_tokens, num_layers, page_buffer_size);
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
+    }
+}
+
+
+/**
+ * Quickly offload KV cache from vLLM paged memory to the offloading buffer
+ * Processes all the layers at the same time
+ *
+ * Each layer in vLLM's KV buffer has a shape of
+ * [2, page_num, page_size*num_heads*head_size] in paged_attn
+ *
+ * Each thread block processes the copy for a token 
+ * The grid size should be (num_tokens, num_layers, 2) 
+ *
+ * Therefore:
+ *  - k/v -- block.z
+ *  - layer id -- block.y
+ *  - token id -- block.x
+ *  - offset within a token -- thread.x
+ *
+ * The function does:
+ * slot_id = slot_mapping[block.x]
+ * key_value[block.z, block.y, block.x, thread.x] = ptrs[block.y][block.z, slot_id, thread.x]
+ *
+ * Param:
+ *  - direction: false  means LMCache to PagedBuffer, true  means PagedBuffer to LMCache
+ */
+void multi_layer_kv_transfer_page_attn(
+    torch::Tensor& key_value,  // [2, num_layer, num_tokens, num_heads*head_size]
+                               // key/value must be on gpu/pinned cpu
+    const torch::Tensor& key_value_ptrs, // [num_layers]
+    const torch::Tensor& slot_mapping,  // [num_tokens],
+    const torch::Device& paged_memory_device, 
+    const int page_size,
+    const int num_pages,
+    const int head_size,
+    const int x,
+    const bool direction
+) {
+    int64_t *key_value_ptr = get_kernel_ptr<int64_t, torch::Tensor>(key_value);
+    int64_t **page_buffer_ptrs = get_kernel_ptr<int64_t*, const torch::Tensor>(key_value_ptrs);
+    const int64_t *slot_mapping_ptr = get_kernel_ptr<const int64_t, const torch::Tensor>(slot_mapping);
+
+    int num_layers = key_value.size(1);
+    int num_tokens = slot_mapping.size(0);
+    int num_origin_elements = key_value.size(3);
+    int num_heads = num_origin_elements / head_size;
+
+    int elements_per_qword = 8 / key_value.element_size();
+    int num_qwords = num_origin_elements / elements_per_qword;
+  
+    int k_or_v_size = 2;
+    
+
+    dim3 grid(key_value.size(2), key_value.size(1), k_or_v_size);
+    dim3 block(std::min(num_qwords, 128));
+
+    const at::cuda::OptionalCUDAGuard device_guard(paged_memory_device);
+    const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+
+    if (not direction) {
+        lmc::load_and_reshape_multi_layer_page_attn_kernel<int64_t, false><<<grid, block, 0, stream>>>(
+            key_value_ptr, page_buffer_ptrs, slot_mapping_ptr,
+            num_tokens, num_layers, page_size, num_pages, num_heads, head_size, x, elements_per_qword, num_qwords);
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
+    }
+    else {
+        lmc::load_and_reshape_multi_layer_page_attn_kernel<int64_t, true><<<grid, block, 0, stream>>>(
+            key_value_ptr, page_buffer_ptrs, slot_mapping_ptr,
+            num_tokens, num_layers, page_size, num_pages, num_heads, head_size, x, elements_per_qword, num_qwords);
         C10_CUDA_KERNEL_LAUNCH_CHECK();
     }
 }

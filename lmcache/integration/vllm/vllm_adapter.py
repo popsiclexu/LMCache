@@ -29,6 +29,7 @@ from vllm.attention import AttentionMetadata
 from vllm.attention.backends.flash_attn import FlashAttentionMetadata
 from vllm.attention.backends.flashmla import FlashMLAMetadata
 from vllm.attention.backends.mla.common import MLACommonMetadata
+from vllm.attention.ops.paged_attn import PagedAttentionMetadata
 from vllm.config import (CacheConfig, ModelConfig, ParallelConfig,
                          SchedulerConfig)
 from vllm.sequence import IntermediateTensors
@@ -39,7 +40,7 @@ from lmcache.experimental.cache_engine import (LMCacheEngine,
                                                LMCacheEngineBuilder)
 from lmcache.experimental.config import LMCacheEngineConfig
 from lmcache.experimental.gpu_connector import (
-    VLLMPagedMemGPUConnectorMLA, VLLMPagedMemGPUConnectorV2,
+    VLLMPagedMemGPUConnectorMLA, VLLMPagedMemGPUConnectorWrapper,
     VLLMPagedMemLayerwiseGPUConnector)
 from lmcache.integration.vllm.utils import ENGINE_NAME, lmcache_get_config
 from lmcache.logging import init_logger
@@ -52,8 +53,8 @@ logger = init_logger(__name__)
 
 LMCACHE_CUDA_STREAM = torch.cuda.Stream()
 
-SUPPORTED_BACKEND_METADATA = (FlashAttentionMetadata, FlashMLAMetadata,
-                              MLACommonMetadata)
+SUPPORTED_BACKEND_METADATA = (PagedAttentionMetadata, FlashAttentionMetadata,
+                              FlashMLAMetadata, MLACommonMetadata)
 
 VLLM_CACHE_CONFIG: Optional[CacheConfig] = None
 VLLM_MODEL_CONFIG: Optional[ModelConfig] = None
@@ -154,7 +155,7 @@ def init_lmcache_engine(
                                      kv_shape)
 
     use_gpu = need_gpu_interm_buffer(config)
-    vllm_gpu_connector: Union[VLLMPagedMemGPUConnectorV2,
+    vllm_gpu_connector: Union[VLLMPagedMemGPUConnectorWrapper,
                               VLLMPagedMemLayerwiseGPUConnector,
                               VLLMPagedMemGPUConnectorMLA]
 
@@ -183,9 +184,11 @@ def init_lmcache_engine(
                 dtype=kv_dtype,
                 device=device)
         else:
-            vllm_gpu_connector = VLLMPagedMemGPUConnectorV2(
-                hidden_dim_size,
+            vllm_gpu_connector = VLLMPagedMemGPUConnectorWrapper(
                 num_layer,
+                num_kv_head,
+                head_size,
+                cache_config.block_size,
                 use_gpu=use_gpu,
                 chunk_size=chunk_size,
                 dtype=kv_dtype,
@@ -420,6 +423,19 @@ def lmcache_should_store(
     return store_status
 
 
+def __get_attn_type(attn_metadata) -> str:
+    if isinstance(attn_metadata, PagedAttentionMetadata):
+        return "paged_attn"
+    elif isinstance(attn_metadata, FlashAttentionMetadata):
+        return "flash_attn"
+    elif isinstance(attn_metadata, MLACommonMetadata) or isinstance(
+            attn_metadata, FlashMLAMetadata):
+        return "mla"
+    else:
+        raise ValueError("Not supported attention type: {}".format(
+            type(attn_metadata)))
+
+
 @_lmcache_nvtx_annotate
 def lmcache_store_kv(
     model_config: ModelConfig,
@@ -444,6 +460,7 @@ def lmcache_store_kv(
     :param store_status: Indicate whether and how KV cache of each req is stored
     :type store_status: List[StoreStatus]
     """
+
     engine = LMCacheEngineBuilder.get(ENGINE_NAME)
     assert engine is not None, "LMCache engine is not initialized."
 
@@ -554,7 +571,9 @@ def lmcache_store_kv(
                              kv_tensors_mask,
                              kvcaches=kv_caches,
                              slot_mapping=slot_mapping_req_full,
-                             offset=skip_leading_tokens)
+                             offset=skip_leading_tokens,
+                             attn_type=__get_attn_type(
+                                 model_input.attn_metadata))
             else:
                 stored_token_num = 0
                 skip_leading_tokens = seq_len
@@ -708,7 +727,7 @@ def lmcache_retrieve_kv(
                 kvcaches=kv_caches,
                 slot_mapping=slot_mapping_req_full,
                 use_mla=engine.metadata.use_mla,
-            )
+                attn_type=__get_attn_type(model_input.attn_metadata))
             lmc_num_computed_tokens = max(
                     torch.sum(ret_token_mask).item() - \
                     (vllm_num_computed_tokens - vllm_num_computed_tokens_align),
