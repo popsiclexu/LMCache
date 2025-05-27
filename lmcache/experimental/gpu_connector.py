@@ -844,9 +844,9 @@ class VLLMPagedMemGPUConnectorForPagedAttn(GPUConnectorInterface):
         self.num_layers = num_layers
         self.kv_cache_pointers = torch.empty(num_layers,
                                              dtype=torch.int64,
-                                             device='cpu',
-                                             pin_memory=True)
-        self.pointers_initialized = False
+                                             device='cpu')
+        self.kv_cache_pointers_on_gpu: dict[int, torch.Tensor] = {}
+
         self.page_buffer_size = 0
 
         self.gpu_buffer: Optional[torch.Tensor] = None
@@ -861,31 +861,23 @@ class VLLMPagedMemGPUConnectorForPagedAttn(GPUConnectorInterface):
             self.gpu_buffer = torch.empty(shape,
                                           dtype=kwargs["dtype"],
                                           device=kwargs["device"])
+        print(f"[DEBUG] num_heads: {self.num_heads}, head_size: {self.head_size}, vllm_block_size: {self.vllm_block_size}, num_layers: {self.num_layers}")
 
-    def _pointers_are_good(self, kv_caches: List[torch.Tensor]):
-        """
-        Check if the initialized pointers are the same as the pointers in 
-        the KV caches. 
+    def _initialize_pointers(self, kv_caches: List[torch.Tensor]) -> torch.Tensor:
+        self.kv_cache_pointers.numpy()[:] = [t.data_ptr() for t in kv_caches]
+        device = kv_caches[0].device
+        assert device.type == 'cuda', \
+                "The device should be CUDA."
+        idx = device.index
+        if idx not in self.kv_cache_pointers_on_gpu:
+            self.kv_cache_pointers_on_gpu[idx] = torch.empty(self.num_layers,
+                                                             dtype=torch.int64,
+                                                             device=device)
+        self.kv_cache_pointers_on_gpu[idx].copy_(self.kv_cache_pointers)
 
-        Returns:
-            bool: True if the pointers are the same, False otherwise (
-                including uninitialized).
-        """
-        if not self.pointers_initialized:
-            return False
-
-        for i in range(self.num_layers):
-            if self.kv_cache_pointers[i] != kv_caches[i].data_ptr():
-                return False
-        return True
-
-    def _initialize_pointers(self, kv_caches: List[torch.Tensor]):
-        for i in range(self.num_layers):
-            self.kv_cache_pointers[i] = kv_caches[i].data_ptr()
-        self.pointers_initialized = True
         # kv_caches[0].shape: [2, num_pages, page_size*num_heads*head_size]
-
         self.page_buffer_size = kv_caches[0].shape[1] * self.vllm_block_size
+        return self.kv_cache_pointers_on_gpu[idx]
 
     @_lmcache_nvtx_annotate
     def to_gpu(self, memory_obj: MemoryObj, start: int, end: int, **kwargs):
@@ -921,13 +913,12 @@ class VLLMPagedMemGPUConnectorForPagedAttn(GPUConnectorInterface):
         kvcaches: List[torch.Tensor] = kwargs["kvcaches"]
         slot_mapping: torch.Tensor = kwargs["slot_mapping"]
 
-        if not self._pointers_are_good(kvcaches):
-            self._initialize_pointers(kvcaches)
+        kv_cache_pointers = self._initialize_pointers(kvcaches)
 
         x = 16 // kvcaches[0].element_size()
         num_pages = kvcaches[0].shape[1]
         lmc_ops.multi_layer_kv_transfer_page_attn(
-            memory_obj.tensor, self.kv_cache_pointers, slot_mapping[start:end],
+            memory_obj.tensor, kv_cache_pointers, slot_mapping[start:end],
             kvcaches[0].device, self.vllm_block_size, num_pages,
             self.head_size, x, False)
 
@@ -960,10 +951,8 @@ class VLLMPagedMemGPUConnectorForPagedAttn(GPUConnectorInterface):
 
         kvcaches: List[torch.Tensor] = kwargs["kvcaches"]
         slot_mapping: torch.Tensor = kwargs["slot_mapping"]
-
-        #if not self.pointers_initialized:
-        if not self._pointers_are_good(kvcaches):
-            self._initialize_pointers(kvcaches)
+      
+        kv_cache_pointers = self._initialize_pointers(kvcaches)
 
         x = 16 // kvcaches[0].element_size()
         num_pages = kvcaches[0].shape[1]
@@ -971,15 +960,16 @@ class VLLMPagedMemGPUConnectorForPagedAttn(GPUConnectorInterface):
                 end - start != self.gpu_buffer.shape[2]:
 
             lmc_ops.multi_layer_kv_transfer_page_attn(
-                memory_obj.tensor, self.kv_cache_pointers,
+                memory_obj.tensor, kv_cache_pointers,
                 slot_mapping[start:end], kvcaches[0].device,
                 self.vllm_block_size, num_pages, self.head_size, x, True)
         else:
             # kvcaches -> gpu_buffer -> memobj
             assert self.gpu_buffer.device == kvcaches[0].device
             tmp_gpu_buffer = self.gpu_buffer[:, :, :end - start, :]
+            print(f"[DEBUG] gpu_buffer shape: {tmp_gpu_buffer.shape}, kv_cache_shape: {kvcaches[0].shape}, num_pages: {num_pages}, head_size: {self.head_size}, x: {x}")
             lmc_ops.multi_layer_kv_transfer_page_attn(
-                tmp_gpu_buffer, self.kv_cache_pointers,
+                tmp_gpu_buffer, kv_cache_pointers,
                 slot_mapping[start:end], kvcaches[0].device,
                 self.vllm_block_size, num_pages, self.head_size, x, True)
             memory_obj.tensor.copy_(tmp_gpu_buffer, non_blocking=True)
