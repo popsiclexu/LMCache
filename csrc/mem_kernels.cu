@@ -261,7 +261,7 @@ __global__ void load_and_reshape_multi_layer_page_attn_kernel(
         const int x_offset = head_offset % x;
         int64_t vllm_offset;
         if (k_or_v == 0) {
-            vllm_offset = page_idx * num_pages * num_heads * (head_size / x) * x / elements_per_qword +
+            vllm_offset = page_idx * page_size * num_heads * (head_size / x) * x / elements_per_qword +
                 head_idx * (head_size / x) * page_size * x / elements_per_qword + x_idx * page_size * x / elements_per_qword +
                 page_offset * x / elements_per_qword + x_offset / elements_per_qword + i;
         } else {
