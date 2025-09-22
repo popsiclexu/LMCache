@@ -78,7 +78,7 @@ class LMCLocalBackend(LMCBackendInterface):
         self.mpool: LocalPool
         if self.device == "cpu":
             self.mpool = LocalCPUPool(metadata)
-        elif self.device == "cuda":
+        elif self.device in ["cuda", "musa"]:
             self.mpool = LocalGPUPool(metadata)
 
         # TODO(Jiayi): A gpu buffer could speed up `get`

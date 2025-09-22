@@ -14,6 +14,7 @@ import torch
 
 # First Party
 from lmcache.utils import (
+    GPU_TYPE,
     mock_up_broadcast_fn,
     mock_up_broadcast_object_fn,
 )
@@ -34,7 +35,7 @@ from .utils import (
 
 
 def test_paged_same_retrieve_store(autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     fmt = "vllm"
     num_tokens = 2000
     num_blocks = 1000
@@ -126,7 +127,7 @@ def test_paged_retrieve_prefix(
             check_equality = False
         else:
             remote_serde = "naive"
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     new_num_tokens = 1000
     kv_shape = (32, 2, chunk_size, 8, 128)
@@ -230,7 +231,7 @@ def test_paged_store_offset(
     url = None
     if backend == "remote":
         url = lmserver_v1_process.server_url
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     num_suffix_tokens = 500
     num_total_tokens = 3000
@@ -329,7 +330,7 @@ def test_paged_store_offset(
     ],
 )
 def test_paged_mixed_retrieve(fmt, chunk_size, backend, autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     new_num_tokens = 1000
     num_blocks = 1000
@@ -463,7 +464,7 @@ def test_paged_mixed_retrieve(fmt, chunk_size, backend, autorelease_v1):
 
 @pytest.mark.parametrize("fmt", ["vllm"])
 def test_paged_store_kv_tensors_mask(fmt, autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 1000
     new_num_tokens = 2000
     num_blocks = 1000
@@ -624,7 +625,7 @@ def test_paged_hierarchy_retrieve(
     url = None
     if backend == "local_cpu_disk_remote":
         url = lmserver_v1_process.server_url
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     new_num_tokens = 1000
     kv_shape = (32, 2, chunk_size, 8, 128)
@@ -751,7 +752,7 @@ def test_paged_hierarchy_retrieve(
     ],
 )
 def test_paged_prefetch_retrieve(backend, prefetch_from, autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     new_num_tokens = 1000
     num_blocks = 1000
@@ -883,7 +884,7 @@ def test_paged_mem_leak(fmt, chunk_size, backend, lmserver_v1_process, autorelea
     if "remote" in backend:
         url = lmserver_v1_process.server_url
 
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     kv_shape = (32, 2, chunk_size, 8, 128)
     num_blocks = 1000
@@ -965,7 +966,7 @@ def test_paged_mem_leak(fmt, chunk_size, backend, lmserver_v1_process, autorelea
 )
 @pytest.mark.no_shared_allocator
 def test_paged_retrieve_after_eviction(fmt, chunk_size, backend, autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     # NOTE: The default backend cache size is 2 GB.
     # 10000 tokens ia around 1.3 GB so a second retrieve will cause an eviction.
     num_tokens = 10000
@@ -1103,7 +1104,7 @@ def test_builder(autorelease_v1):
 
 @pytest.mark.no_shared_allocator
 def test_force_store_wait(autorelease_v1):
-    device = "cuda"
+    device = GPU_TYPE
     fmt = "vllm"
     num_tokens = 10000
     num_blocks = 5000
@@ -1272,7 +1273,7 @@ def test_multi_device_backends(autorelease_v1):
     """Test running GPU-related backend with local CPU backends
     together
     """
-    device = "cuda"
+    device = GPU_TYPE
     num_tokens = 2000
     num_blocks = 1000
     block_size = 16

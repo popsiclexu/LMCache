@@ -10,6 +10,7 @@ import yaml
 
 # First Party
 from lmcache.logging import init_logger
+from lmcache.utils import GPU_TYPE
 import lmcache.config as orig_config
 
 logger = init_logger(__name__)
@@ -448,7 +449,7 @@ def _to_original_config(self):
     """Convert to original configuration format"""
     return orig_config.LMCacheEngineConfig(
         chunk_size=self.chunk_size,
-        local_device="cpu" if self.local_cpu else "cuda",
+        local_device="cpu" if self.local_cpu else GPU_TYPE,
         max_local_cache_size=int(self.max_local_cpu_size),
         remote_url=None,
         remote_serde=None,

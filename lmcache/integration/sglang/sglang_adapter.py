@@ -12,7 +12,7 @@ import torch
 from lmcache.config import LMCacheEngineMetadata
 from lmcache.integration.sglang.utils import ENGINE_NAME, lmcache_get_config
 from lmcache.logging import init_logger
-from lmcache.utils import mock_up_broadcast_fn, mock_up_broadcast_object_fn
+from lmcache.utils import GPU_TYPE, mock_up_broadcast_fn, mock_up_broadcast_object_fn
 from lmcache.v1.cache_engine import LMCacheEngine, LMCacheEngineBuilder
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.gpu_connector import (
@@ -73,7 +73,7 @@ def init_lmcache_engine(
 
     # Change current device.
     torch.cuda.device(rank)
-    device = torch.device(f"cuda:{rank}")
+    device = torch.device(f"{GPU_TYPE}:{rank}")
     metadata = LMCacheEngineMetadata(
         model_config.model_path,
         tp_size,

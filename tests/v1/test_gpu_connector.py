@@ -10,6 +10,7 @@ import pytest
 import torch
 
 # First Party
+from lmcache.utils import GPU_TYPE
 from lmcache.v1.gpu_connector import (
     SGLangGPUConnector,
     VLLMBufferLayerwiseGPUConnector,
@@ -93,7 +94,7 @@ def test_vllm_paged_connector_v2_with_gpu_and_mla(use_gpu, use_mla):
     num_layers = 32
     num_heads = 1 if use_mla else 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     hidden_dim = num_heads * head_size
 
     num_tokens = 800
@@ -188,7 +189,7 @@ def test_layerwise_vllm_paged_connector_with_gpu(use_gpu):
     num_layers = 32
     num_heads = 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     hidden_dim = num_heads * head_size
 
     num_tokens = 800
@@ -288,7 +289,7 @@ def test_batched_layerwise_vllm_paged_connector_with_gpu(use_gpu):
     num_layers = 32
     num_heads = 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     hidden_dim = num_heads * head_size
 
     num_tokens_1 = 800
@@ -451,7 +452,7 @@ def test_layerwise_vllm_buffer_connector_with_gpu(use_gpu):
     num_layers = 32
     num_heads = 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     hidden_dim = num_heads * head_size
 
     num_tokens = 800
@@ -555,7 +556,7 @@ def test_vllm_paged_connector_v2_to_gpu_bench(benchmark):
     num_layers = 32
     num_heads = 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     hidden_dim = num_heads * head_size
 
     chunk_size = 256
@@ -607,7 +608,7 @@ def test_sglang_connector_with_gpu_and_mla(use_gpu, use_mla):
     num_layers = 32
     num_heads = 1 if use_mla else 8
     head_size = 128
-    device = "cuda"
+    device = GPU_TYPE
     dtype = torch.bfloat16
     hidden_dim = num_heads * head_size
 

@@ -27,6 +27,12 @@ except ImportError:
 # Third Party
 import torch
 
+try:
+    # Third Party
+    import torch_musa  # noqa: F401
+except ImportError:
+    pass
+
 # First Party
 from lmcache.logging import init_logger
 
@@ -384,3 +390,22 @@ def mock_up_broadcast_fn(t: torch.Tensor, i: int) -> None:
 
 def mock_up_broadcast_object_fn(a: Any, i: int) -> None:
     raise NotImplementedError("Calling invalid broadcast object function")
+
+
+def is_cuda() -> bool:
+    return hasattr(torch, "cuda") and torch.cuda.is_available()
+
+
+def is_musa() -> bool:
+    return hasattr(torch, "musa") and torch.musa.is_available()
+
+
+def get_gpu_type():
+    if is_cuda():
+        return "cuda"
+    elif is_musa():
+        return "musa"
+    return ""
+
+
+GPU_TYPE = get_gpu_type()

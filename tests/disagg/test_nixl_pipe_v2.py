@@ -10,7 +10,7 @@ import zmq
 
 # First Party
 from lmcache.logging import init_logger
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.memory_management import (
     AdHocMemoryAllocator,
     MemoryFormat,
@@ -32,7 +32,7 @@ def generate_test_data(
     keys = []
     objs = []
     allocator = AdHocMemoryAllocator(
-        device="cuda",  # Assuming we are using CUDA for the test
+        device=GPU_TYPE,  # Assuming we are using CUDA for the test
     )
     for i in range(num_objs):
         keys.append(
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         receiver_host=args.host,
         receiver_port=args.port,
         buffer_size=2**32,  # 4GB
-        buffer_device="cuda:0",
+        buffer_device=f"{GPU_TYPE}:0",
         enable_gc=False,
     )
 

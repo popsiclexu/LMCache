@@ -8,6 +8,7 @@ import pytest
 import torch
 
 # First Party
+from lmcache.utils import GPU_TYPE
 from lmcache.v1.memory_management import PinMemoryAllocator
 import lmcache.c_ops as lmc_ops
 
@@ -58,7 +59,7 @@ def _slice_kv_at(
 
 @pytest.mark.parametrize("num_tokens", [256, 500, 1024, 8000])
 def test_extract_and_load_back(num_tokens):
-    device = "cuda"
+    device = GPU_TYPE
 
     num_blocks = 1000
     block_size = 16
@@ -158,7 +159,7 @@ def test_extract_and_load_back(num_tokens):
 
 @pytest.mark.parametrize("num_tokens", [256, 500, 1024, 8000])
 def test_multi_layer_kernel(num_tokens):
-    device = "cuda"
+    device = GPU_TYPE
 
     num_blocks = 1000
     block_size = 16
@@ -280,7 +281,7 @@ def test_multi_layer_kernel(num_tokens):
 
 @pytest.mark.parametrize("num_tokens", [256, 500, 1024, 8000])
 def test_multi_layer_kernel_use_mla(num_tokens):
-    device = "cuda"
+    device = GPU_TYPE
 
     num_blocks = 1000
     block_size = 64
@@ -412,7 +413,7 @@ def test_multi_layer_kernel_use_mla(num_tokens):
 @pytest.mark.parametrize("num_tokens", [256, 500, 1024, 8000])
 @pytest.mark.parametrize("token_major", [True, False])
 def test_single_layer_kernel(num_tokens, token_major):
-    device = "cuda"
+    device = GPU_TYPE
 
     num_layers = 32
     num_blocks = 1000

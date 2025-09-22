@@ -11,7 +11,7 @@ import torch
 
 # First Party
 from lmcache.logging import init_logger
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.memory_management import AdHocMemoryAllocator, MemoryFormat, MemoryObj
 from lmcache.v1.storage_backend.connector.nixl_connector_v2 import (
     NixlChannel,
@@ -29,7 +29,7 @@ def generate_test_data(
     keys = []
     objs = []
     allocator = AdHocMemoryAllocator(
-        device="cuda",  # Assuming we are using CUDA for the test
+        device=GPU_TYPE,  # Assuming we are using CUDA for the test
     )
     for i in range(num_objs):
         keys.append(
@@ -313,7 +313,7 @@ def test_allocate_for_send(
     ]
 
     # Create test metadatas
-    allocator = AdHocMemoryAllocator(device="cuda")
+    allocator = AdHocMemoryAllocator(device=GPU_TYPE)
     temp_objs = [allocator.allocate(shape, dtype) for _ in range(3)]
     metadatas = [obj.metadata for obj in temp_objs]
 
@@ -387,7 +387,7 @@ def main():
         receiver_host=args.host,
         receiver_port=args.port,
         buffer_size=2**32,  # 4GB
-        buffer_device="cuda:0",
+        buffer_device=f"{GPU_TYPE}:0",
         enable_gc=False,
     )
 

@@ -28,8 +28,8 @@ def CreateStorageBackend(
     dst_device: str = "cuda",
 ) -> LMCBackendInterface:
     # Replace 'cuda' with 'cuda:<device id>'
-    if dst_device == "cuda":
-        dst_device = f"cuda:{torch.cuda.current_device()}"
+    if dst_device in ["cuda", "musa"]:
+        dst_device = f"{dst_device}:{torch.cuda.current_device()}"
 
     mpool_metadata = LMCacheMemPoolMetadata(
         metadata.kv_shape, metadata.kv_dtype, config.max_local_cache_size
@@ -47,7 +47,7 @@ def CreateStorageBackend(
         ):
             # local only
             match config.local_device:
-                case "cpu" | "cuda":
+                case "cpu" | "cuda" | "musa":
                     logger.info(
                         f"Initializing local-only ({config.local_device}) backend"
                     )

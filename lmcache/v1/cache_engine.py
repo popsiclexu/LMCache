@@ -24,7 +24,7 @@ from lmcache.config import LMCacheEngineMetadata
 from lmcache.logging import init_logger
 from lmcache.observability import LMCacheStatsLogger, LMCStatsMonitor
 from lmcache.usage_context import InitializeUsageContext
-from lmcache.utils import CacheEngineKey, _lmcache_nvtx_annotate
+from lmcache.utils import GPU_TYPE, CacheEngineKey, _lmcache_nvtx_annotate
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.distributed_server import (
     DistributedServerInterface,
@@ -230,7 +230,7 @@ class LMCacheEngine:
             )
             num_to_store_tokens = sum(offsets)
             kwargs["slot_mapping"] = torch.tensor(
-                kwargs["slot_mapping"], dtype=torch.long, device="cuda"
+                kwargs["slot_mapping"], dtype=torch.long, device=GPU_TYPE
             )
 
         assert tokens is not None or hashes is not None, (
@@ -1247,7 +1247,7 @@ class LMCacheEngine:
 
                 # Broadcast tensor data
                 tensor_to_broadcast = memory_obj.tensor.to(
-                    f"cuda:{self.metadata.worker_id}"
+                    f"{GPU_TYPE}:{self.metadata.worker_id}"
                 )
                 self.broadcast_fn(tensor_to_broadcast, self.metadata.first_rank)
         else:
@@ -1280,7 +1280,7 @@ class LMCacheEngine:
                 tensor = torch.empty(
                     metadata.shape,
                     dtype=metadata.dtype,
-                    device=f"cuda:{local_rank}",
+                    device=f"{GPU_TYPE}:{local_rank}",
                 )
                 self.broadcast_fn(tensor, self.metadata.first_rank)
 

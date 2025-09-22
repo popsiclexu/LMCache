@@ -9,7 +9,7 @@ import torch
 
 # First Party
 from lmcache.logging import init_logger
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.memory_management import AdHocMemoryAllocator, MemoryFormat, MemoryObj
 from lmcache.v1.storage_backend.connector.nixl_connector import NixlConfig, NixlRole
 from lmcache.v1.storage_backend.nixl_backend import NixlBackend
@@ -23,7 +23,7 @@ def generate_test_data(
     keys = []
     objs = []
     allocator = AdHocMemoryAllocator(
-        device="cuda",  # Assuming we are using CUDA for the test
+        device=GPU_TYPE,  # Assuming we are using CUDA for the test
     )
     for i in range(num_objs):
         keys.append(
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         receiver_host=args.host,
         receiver_port=args.port,
         buffer_size=2**32,  # 4GB
-        buffer_device="cuda",
+        buffer_device=GPU_TYPE,
     )
 
     # Create the NixlBackend

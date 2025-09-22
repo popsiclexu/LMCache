@@ -12,7 +12,7 @@ import torch
 # First Party
 from lmcache.config import LMCacheEngineMetadata
 from lmcache.logging import init_logger
-from lmcache.utils import mock_up_broadcast_fn, mock_up_broadcast_object_fn
+from lmcache.utils import GPU_TYPE, mock_up_broadcast_fn, mock_up_broadcast_object_fn
 from lmcache.v1.cache_engine import LMCacheEngineBuilder
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.gpu_connector import VLLMPagedMemGPUConnectorV2
@@ -25,7 +25,7 @@ def generate_test_tokens(num_chunks: int, chunk_size: int) -> torch.Tensor:
     The sequence is [0, 1, 2, ..., num_chunks * chunk_size - 1]
     """
     # Create sequential tokens for testing
-    return torch.arange(0, num_chunks * chunk_size, dtype=torch.long, device="cuda")
+    return torch.arange(0, num_chunks * chunk_size, dtype=torch.long, device=GPU_TYPE)
 
 
 def generate_kv_cache_paged_list_tensors(
@@ -113,7 +113,7 @@ def create_config(role: str, host: str, port: int) -> LMCacheEngineConfig:
         nixl_receiver_host=host,
         nixl_receiver_port=port,
         nixl_buffer_size=2**30,  # 1GB
-        nixl_buffer_device="cuda",
+        nixl_buffer_device=GPU_TYPE,
     )
     return config
 
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     num_blocks = 10000
     block_size = 16
     dtype = torch.bfloat16
-    device = "cuda"
+    device = GPU_TYPE
 
     max_chunks = num_blocks * block_size // config.chunk_size
     assert args.num_chunks <= max_chunks, f"Number of chunks must be <= {max_chunks}"

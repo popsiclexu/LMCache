@@ -14,6 +14,7 @@ import torch
 from lmcache.config import LMCacheEngineMetadata
 from lmcache.logging import init_logger
 from lmcache.utils import (
+    GPU_TYPE,
     CacheEngineKey,
     _lmcache_nvtx_annotate,
     start_loop_in_thread_with_exceptions,
@@ -145,7 +146,7 @@ class StorageManager:
         )
         self.thread.start()
 
-        dst_device = "cuda"
+        dst_device = GPU_TYPE
         self.storage_backends: OrderedDict[str, StorageBackendInterface] = (
             CreateStorageBackends(
                 config,

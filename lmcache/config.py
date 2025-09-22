@@ -117,7 +117,7 @@ class LMCacheEngineConfig:
         remote_url: Optional[str] = None
 
         match backend:
-            case "cpu" | "cuda":
+            case "cpu" | "cuda" | "musa":
                 local_device = backend
                 remote_url = None
             case path if re.match(r"file://(.*)/", path):  # local disk directory
@@ -163,7 +163,7 @@ class LMCacheEngineConfig:
         blend_add_special_in_precomp = config.get("blend_add_special_in_precomp", False)
 
         match local_device:
-            case "cpu" | "cuda" | None:
+            case "cpu" | "cuda" | "musa" | None:
                 pass
             case path if re.match(r"file://(.*)/", path):  # local disk directory
                 local_device = path[7:]

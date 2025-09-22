@@ -10,6 +10,7 @@ import torch
 from lmcache.config import LMCacheMemPoolMetadata
 from lmcache.logging import init_logger
 from lmcache.storage_backend.mem_pool.base_pool import BasePool, KVObj
+from lmcache.utils import GPU_TYPE
 
 logger = init_logger(__name__)
 
@@ -126,7 +127,7 @@ class LocalGPUPool(LocalPool):
         logger.info("Initializing gpu mem")
         with torch.inference_mode():
             self.mem_pool = [
-                torch.empty(metadata.kv_shape, dtype=kv_dtype, device="cuda")
+                torch.empty(metadata.kv_shape, dtype=kv_dtype, device=GPU_TYPE)
                 for i in range(self.max_chunk_num)
             ]
 

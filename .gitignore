@@ -118,5 +118,8 @@ lmcache/experimental/tests
 /csrc/*_hip.cuh
 /csrc/*_hip.cpp
 
+# Generated musa files
+/csrc_musa
+
 # Ignore all log files
 *.log

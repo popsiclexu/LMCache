@@ -17,7 +17,7 @@ import torch
 # First Party
 from lmcache.logging import init_logger
 from lmcache.observability import LMCStatsMonitor
-from lmcache.utils import _lmcache_nvtx_annotate
+from lmcache.utils import GPU_TYPE, _lmcache_nvtx_annotate
 import lmcache.c_ops as lmc_ops
 
 logger = init_logger(__name__)
@@ -1787,7 +1787,7 @@ class CuFileMemoryAllocator(GPUMemoryAllocator):
         if device is None:
             # TODO(Serapheim): Ideally we'd get the device from the upper
             # layer - for now just use the current device.
-            device = f"cuda:{torch.cuda.current_device()}"
+            device = f"{GPU_TYPE}:{torch.cuda.current_device()}"
         super().__init__(size, device, align_bytes=4096)
         self.base_pointer = self.tensor.data_ptr()
         cuFileBufRegister(ctypes.c_void_p(self.base_pointer), size, flags=0)

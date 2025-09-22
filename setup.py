@@ -11,12 +11,18 @@ ROOT_DIR = Path(__file__).parent
 HIPIFY_DIR = os.path.join(ROOT_DIR, "csrc/")
 HIPIFY_OUT_DIR = os.path.join(ROOT_DIR, "csrc_hip/")
 
+
+MUSIFY_OUT_DIR = os.path.join(ROOT_DIR, "csrc_musa/")
+
 # python -m build --sdist
 # will run python setup.py sdist --dist-dir dist
 BUILDING_SDIST = "sdist" in sys.argv or os.environ.get("NO_CUDA_EXT", "0") == "1"
 
 # New environment variable to choose between CUDA and HIP
 BUILD_WITH_HIP = os.environ.get("BUILD_WITH_HIP", "0") == "1"
+
+# New environment variable to choose between CUDA and MUSA
+BUILD_WITH_MUSA = os.environ.get("BUILD_WITH_MUSA", "0") == "1"
 
 ENABLE_CXX11_ABI = os.environ.get("ENABLE_CXX11_ABI", "1") == "1"
 
@@ -144,6 +150,74 @@ def rocm_extension() -> tuple[list, dict]:
     return ext_modules, cmdclass
 
 
+def musa_extension() -> tuple[list, dict]:
+    print("Building MUSA extensions")
+    _src_path = os.path.dirname(os.path.abspath(__file__))
+
+    # Third Party
+    from torch_musa.utils.simple_porting import SimplePorting
+
+    SimplePorting(
+        cuda_dir_path="./csrc",
+        mapping_rule={
+            ".cuh": ".muh",
+            "#include <cuda_runtime.h>": "#include <musa_runtime.h>",
+            "#include <cuda.h>": "#include <musa.h>",
+            "#include <ATen/cuda/CUDAContext.h>": '#include "torch_musa/csrc/aten/musa/MUSAContext.h"',  # noqa: E501
+            "#include <c10/cuda/CUDAGuard.h>": '#include "torch_musa/csrc/core/MUSAGuard.h"',  # noqa: E501
+            "#include <cuda_fp8.h>": "#include <musa_fp8.h>",
+            "::cuda::": "::musa::",
+            "CUDA": "MUSA",
+            "_cuda_": "_musa_",
+            ".is_cuda()": ".is_privateuseone()",
+        },
+    ).run()
+    # Third Party
+    from torch_musa.utils.musa_extension import BuildExtension, MUSAExtension
+
+    cxx_flags = [
+        "-O3",
+        "-Wno-switch-bool",
+    ]
+    mcc_flags = [
+        "-Od3",
+        "-O2",
+        "-DNDEBUG",
+        "-fno-strict-aliasing",
+        "-fmusa-flush-denormals-to-zero",
+        "-std=c++17",
+        "-mllvm",
+        "-mtgpu-enable-max-ilp-scheduling-strategy=0",
+        "-mllvm",
+        "-mtgpu-enchanced-minreg-schedule=1",
+    ]
+    # Third Party
+    from torch_musa.testing import get_musa_arch
+
+    os.environ["TORCH_MUSA_ARCH_LIST"] = str(get_musa_arch())
+    ext_modules = [
+        MUSAExtension(
+            name="lmcache.c_ops",
+            sources=[
+                "csrc_musa/pybind.cpp",
+                "csrc_musa/mem_kernels.mu",
+                "csrc_musa/cal_cdf.mu",
+                "csrc_musa/ac_enc.mu",
+                "csrc_musa/ac_dec.mu",
+                "csrc_musa/pos_kernels.mu",
+                "csrc_musa/mem_alloc.cpp",
+                "csrc_musa/utils.cpp",
+            ],
+            extra_compile_args={
+                "cxx": cxx_flags,
+                "mcc": mcc_flags,
+            },
+        ),
+    ]
+    cmdclass = {"build_ext": BuildExtension}
+    return ext_modules, cmdclass
+
+
 def source_dist_extension() -> tuple[list, dict]:
     print("Not building CUDA/HIP extensions for sdist")
     return [], {}
@@ -154,6 +228,8 @@ if __name__ == "__main__":
         get_extension = source_dist_extension
     elif BUILD_WITH_HIP:
         get_extension = rocm_extension
+    elif BUILD_WITH_MUSA:
+        get_extension = musa_extension
     else:
         get_extension = cuda_extension
 

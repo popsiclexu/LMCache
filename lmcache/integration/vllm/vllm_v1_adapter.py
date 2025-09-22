@@ -36,7 +36,7 @@ from lmcache.integration.vllm.utils import (
 )
 from lmcache.logging import init_logger
 from lmcache.observability import LMCStatsMonitor
-from lmcache.utils import _lmcache_nvtx_annotate
+from lmcache.utils import GPU_TYPE, _lmcache_nvtx_annotate
 from lmcache.v1.cache_engine import LMCacheEngine, LMCacheEngineBuilder
 from lmcache.v1.compute.blend import LMCBlenderBuilder
 from lmcache.v1.config import LMCacheEngineConfig
@@ -465,7 +465,7 @@ def _init_lmcache_engine(
     num_gpus = torch.cuda.device_count()
     local_rank = parallel_config.rank % num_gpus
     torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
+    device = torch.device(f"{GPU_TYPE}:{local_rank}")
     metadata = LMCacheEngineMetadata(
         model_config.model,
         parallel_config.world_size,

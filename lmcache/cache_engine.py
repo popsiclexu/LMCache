@@ -13,7 +13,7 @@ from lmcache.logging import init_logger
 from lmcache.observability import LMCacheStatsLogger, LMCStatsMonitor
 from lmcache.storage_backend import CreateStorageBackend
 from lmcache.usage_context import InitializeUsageContext
-from lmcache.utils import CacheEngineKey, KVCache, _lmcache_nvtx_annotate
+from lmcache.utils import GPU_TYPE, CacheEngineKey, KVCache, _lmcache_nvtx_annotate
 
 logger = init_logger(__name__)
 
@@ -38,8 +38,9 @@ class LMCacheEngine:
         self.hit_tokens_count = 0
         self.hit_rate = 0.0
 
-        self.engine_ = CreateStorageBackend(config, metadata)
+        self.engine_ = CreateStorageBackend(config, metadata, dst_device=GPU_TYPE)
         logger.debug(f"Current storage backend type {type(self.engine_)}")
+        print(self.engine_)
 
         InitializeUsageContext(config, metadata)
         self.stats_monitor = LMCStatsMonitor.GetOrCreate()

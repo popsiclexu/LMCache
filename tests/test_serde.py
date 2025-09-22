@@ -8,6 +8,7 @@ from lmcache.config import LMCacheEngineConfig, LMCacheEngineMetadata
 from lmcache.storage_backend.serde.cachegen_basics import CacheGenEncoderOutput
 from lmcache.storage_backend.serde.cachegen_decoder import CacheGenDeserializer
 from lmcache.storage_backend.serde.cachegen_encoder import CacheGenSerializer
+from lmcache.utils import GPU_TYPE
 
 
 def generate_kv_cache(num_tokens, fmt, device):
@@ -60,7 +61,7 @@ def test_cachegen_encoder(chunk_size):
     serializer = CacheGenSerializer(config, metadata)
     serializer2 = CacheGenSerializer(config, metadata2)
 
-    kv = to_blob(generate_kv_cache(chunk_size, fmt, "cuda"))
+    kv = to_blob(generate_kv_cache(chunk_size, fmt, GPU_TYPE))
     output = serializer.to_bytes(kv)
     kv2 = kv.permute([0, 1, 3, 2, 4])
     output2 = serializer2.to_bytes(kv2)
@@ -86,7 +87,7 @@ def test_cachegen_decoder(fmt, chunk_size):
     serializer = CacheGenSerializer(config, metadata)
     deserializer = CacheGenDeserializer(config, metadata, torch.bfloat16)
 
-    kv = to_blob(generate_kv_cache(chunk_size, fmt, "cuda"))
+    kv = to_blob(generate_kv_cache(chunk_size, fmt, GPU_TYPE))
     output = serializer.to_bytes(kv)
 
     decoded_kv = deserializer.from_bytes(output)
@@ -110,7 +111,7 @@ def test_cachegen_unmatched_size(fmt):
     serializer = CacheGenSerializer(config, metadata)
     deserializer = CacheGenDeserializer(config, metadata, torch.bfloat16)
 
-    kv = to_blob(generate_kv_cache(chunk_size - 20, fmt, "cuda"))
+    kv = to_blob(generate_kv_cache(chunk_size - 20, fmt, GPU_TYPE))
     output = serializer.to_bytes(kv)
 
     decoded_kv = deserializer.from_bytes(output)

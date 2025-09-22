@@ -11,7 +11,7 @@ import pytest
 import torch
 
 # First Party
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.memory_management import AdHocMemoryAllocator, MemoryFormat, MemoryObj
 from lmcache.v1.storage_backend.gds_backend import GdsBackend
@@ -67,7 +67,7 @@ def gds_backend(temp_gds_path, async_loop, memory_allocator):
         config=config,
         loop=async_loop,
         memory_allocator=memory_allocator,
-        dst_device="cuda" if torch.cuda.is_available() else "cpu",
+        dst_device=GPU_TYPE if torch.cuda.is_available() else "cpu",
     )
 
 
@@ -84,11 +84,11 @@ class TestGdsBackend:
             config=config,
             loop=async_loop,
             memory_allocator=memory_allocator,
-            dst_device="cuda" if torch.cuda.is_available() else "cpu",
+            dst_device=GPU_TYPE if torch.cuda.is_available() else "cpu",
         )
         assert backend.gds_path == temp_gds_path
         assert backend.memory_allocator == memory_allocator
-        assert backend.dst_device in ("cuda", "cpu")
+        assert backend.dst_device in (GPU_TYPE, "cpu")
         assert os.path.exists(temp_gds_path)
 
     def test_str(self, gds_backend):

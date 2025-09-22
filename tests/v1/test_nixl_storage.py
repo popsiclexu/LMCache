@@ -10,7 +10,7 @@ import torch
 
 # First Party
 from lmcache.config import LMCacheEngineMetadata
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.memory_management import PagedTensorMemoryAllocator
 from lmcache.v1.storage_backend import CreateStorageBackends
@@ -125,7 +125,7 @@ def test_nixl_gds_mt_cuda_backend():
     dtype = torch.bfloat16
     shape = [2048, 2048]
 
-    config.nixl_buffer_device = "cuda"
+    config.nixl_buffer_device = GPU_TYPE
     config.extra_config["nixl_backend"] = "GDS_MT"
 
     run(config, shape, dtype)
@@ -153,7 +153,7 @@ def test_nixl_gds_cuda_backend():
     dtype = torch.bfloat16
     shape = [2048, 2048]
 
-    config.nixl_buffer_device = "cuda"
+    config.nixl_buffer_device = GPU_TYPE
     config.extra_config["nixl_backend"] = "GDS"
 
     run(config, shape, dtype)

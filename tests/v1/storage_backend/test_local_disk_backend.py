@@ -11,7 +11,7 @@ import torch
 
 # First Party
 from lmcache.config import LMCacheEngineMetadata
-from lmcache.utils import CacheEngineKey
+from lmcache.utils import GPU_TYPE, CacheEngineKey
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.memory_management import (
     MemoryFormat,
@@ -116,7 +116,7 @@ def local_disk_backend(temp_disk_path, async_loop, local_cpu_backend):
         config=config,
         loop=async_loop,
         local_cpu_backend=local_cpu_backend,
-        dst_device="cuda",
+        dst_device=GPU_TYPE,
     )
 
 
@@ -130,10 +130,10 @@ class TestLocalDiskBackend:
             config=config,
             loop=async_loop,
             local_cpu_backend=local_cpu_backend,
-            dst_device="cuda",
+            dst_device=GPU_TYPE,
         )
 
-        assert backend.dst_device == "cuda"
+        assert backend.dst_device == GPU_TYPE
         assert backend.local_cpu_backend == local_cpu_backend
         assert backend.path == temp_disk_path
         assert os.path.exists(temp_disk_path)
@@ -155,7 +155,7 @@ class TestLocalDiskBackend:
             config=config,
             loop=async_loop,
             local_cpu_backend=local_cpu_backend,
-            dst_device="cuda",
+            dst_device=GPU_TYPE,
             lmcache_worker=lmcache_worker,
         )
 

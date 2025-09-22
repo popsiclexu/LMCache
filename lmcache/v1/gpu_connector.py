@@ -9,7 +9,7 @@ import torch
 # First Party
 from lmcache.integration.vllm.utils import ENGINE_NAME
 from lmcache.logging import init_logger
-from lmcache.utils import _lmcache_nvtx_annotate
+from lmcache.utils import GPU_TYPE, _lmcache_nvtx_annotate
 from lmcache.v1.compute.blend.utils import LMCBlenderBuilder
 from lmcache.v1.memory_management import GPUMemoryAllocator  # noqa: E501
 from lmcache.v1.memory_management import MemoryFormat, MemoryObj
@@ -161,7 +161,7 @@ class VLLMPagedMemGPUConnectorV2(GPUConnectorInterface):
 
     def _initialize_pointers(self, kv_caches: List[torch.Tensor]) -> torch.Tensor:
         self.device = kv_caches[0].device
-        assert self.device.type == "cuda", "The device should be CUDA."
+        assert self.device.type == GPU_TYPE, "The device should be CUDA."
         idx = self.device.index
         if idx in self.kv_cache_pointers_on_gpu:
             return self.kv_cache_pointers_on_gpu[idx]
@@ -1058,7 +1058,7 @@ class SGLangGPUConnector(GPUConnectorInterface):
 
         self.kv_cache_pointers.numpy()[:] = [t.data_ptr() for t in kv_caches]
         device = kv_caches[0].device
-        assert device.type == "cuda", "The device should be CUDA."
+        assert device.type == GPU_TYPE, "The device should be CUDA."
         idx = device.index
         if idx not in self.kv_cache_pointers_on_gpu:
             self.kv_cache_pointers_on_gpu[idx] = torch.empty(

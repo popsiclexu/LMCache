@@ -13,7 +13,7 @@ import pytest
 import torch
 
 # First Party
-from lmcache.utils import mock_up_broadcast_fn, mock_up_broadcast_object_fn
+from lmcache.utils import GPU_TYPE, mock_up_broadcast_fn, mock_up_broadcast_object_fn
 from lmcache.v1.cache_engine import LMCacheEngineBuilder
 from lmcache.v1.config import LMCacheEngineConfig
 from tests.v1.utils import (
@@ -112,7 +112,7 @@ def test_store_1GB(benchmark, backend, create_config, autorelease_v1):
     dtype = torch.bfloat16
 
     # lmcache and vllm configs
-    device = "cuda"
+    device = GPU_TYPE
     fmt = "vllm"
     num_tokens = 2000
 
@@ -210,7 +210,7 @@ def test_retrieve_1GB_allhit(benchmark, backend, create_config, autorelease_v1):
     dtype = torch.bfloat16
 
     # lmcache and vllm configs
-    device = "cuda"
+    device = GPU_TYPE
     fmt = "vllm"
     num_tokens = 2000
 
@@ -313,7 +313,7 @@ def test_lookup_20K_tokens(benchmark, backend, create_config, autorelease_v1):
     dtype = torch.bfloat16
 
     # lmcache and vllm configs
-    device = "cuda"
+    device = GPU_TYPE
     fmt = "vllm"
     num_tokens = 2000
 

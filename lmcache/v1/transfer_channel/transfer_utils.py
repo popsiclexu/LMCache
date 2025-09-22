@@ -16,5 +16,7 @@ def get_correct_device(device: str, worker_id: int) -> str:
         return "cpu"
     elif device.startswith("cuda"):
         return f"cuda:{worker_id}"
+    elif device.startswith("musa"):
+        return f"musa:{worker_id}"
     else:
         raise ValueError(f"Invalid device: {device}")

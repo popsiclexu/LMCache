@@ -9,6 +9,7 @@ from vllm.vllm_flash_attn import flash_attn_varlen_func, get_scheduler_metadata
 import torch
 
 # First Party
+from lmcache.utils import GPU_TYPE
 from lmcache.v1.compute.attention.abstract import AttentionInterface
 from lmcache.v1.compute.attention.metadata import LMCFlashAttnMetadata
 
@@ -35,7 +36,7 @@ class LMCFlashAttnBackend(AttentionInterface):
         self.aot_schedule = False
 
         idx = torch.cuda.current_device()
-        self.device = torch.device(f"cuda:{idx}")
+        self.device = torch.device(f"{GPU_TYPE}:{idx}")
 
     def forward_contiguous(
         self,
